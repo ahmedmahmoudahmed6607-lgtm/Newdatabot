@@ -10,6 +10,7 @@ except:
     import telebot
 
 import sqlite3
+import re
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ══════════════════════════════════════
@@ -114,6 +115,40 @@ def send_admin_notification(text, photo=None, reply_markup=None):
         except Exception:
             continue
 
+# دالة تحويل الرسالة إلى HTML لتضمين الإيموجيات المميزة
+def get_html_text(msg):
+    if not msg.text:
+        return ""
+    if not msg.entities:
+        return msg.text
+
+    text = msg.text
+    entities = sorted(msg.entities, key=lambda e: e.offset, reverse=True)
+    
+    for entity in entities:
+        start = entity.offset
+        end = entity.offset + entity.length
+        sub_text = text[start:end]
+        
+        if entity.type == "custom_emoji":
+            replacement = f'<tg-emoji emoji-id="{entity.custom_emoji_id}">{sub_text}</tg-emoji>'
+            text = text[:start] + replacement + text[end:]
+        elif entity.type == "bold":
+            text = text[:start] + f'<b>{sub_text}</b>' + text[end:]
+        elif entity.type == "italic":
+            text = text[:start] + f'<i>{sub_text}</i>' + text[end:]
+        elif entity.type == "code":
+            text = text[:start] + f'<code>{sub_text}</code>' + text[end:]
+
+    return text
+
+# دالة استخراج الـ Custom Emoji ID والنص النظيف للأزرار
+def parse_section_emoji(html_text):
+    clean_text = re.sub(r'<[^>]+>', '', html_text).strip()
+    match = re.search(r'emoji-id="(\d+)"', html_text)
+    emoji_id = match.group(1) if match else None
+    return clean_text, emoji_id
+
 # ══════════════════════════════════════
 # 🌟 نظام التعبيرات والإيموجي المخصص
 # ══════════════════════════════════════
@@ -129,7 +164,7 @@ E_FALLBACK = {
 }
 
 def ce(eid): 
-    fallback = E_FALLBACK.get(eid, "⭐")
+    fallback = E_FALLBACK.get(str(eid), "⭐")
     return f'<tg-emoji emoji-id="{eid}">{fallback}</tg-emoji>'
 
 E = {
@@ -155,7 +190,7 @@ E = {
     "cloud": "5400090058030075645"
 }
 
-# أيديهات الشبكات المخصصة[span_0](start_span)[span_0](end_span)
+# أيديهات الشبكات المخصصة
 E_ORANGE   = "5386377708570914041"
 E_VODAFONE = "5386395891314963351"
 E_INWI     = "5386566088210499824"
@@ -163,14 +198,14 @@ E_ETISALAT = "5386411984540645162"
 
 def get_network_emoji(name):
     """تحديد الإيموجي المناسب حسب اسم القسم تلقائياً"""
-    n = str(name).lower()
-    if "اورنج" in n or "orange" in n:
+    clean_name = re.sub(r'<[^>]+>', '', str(name)).lower()
+    if "اورنج" in clean_name or "orange" in clean_name:
         return E_ORANGE
-    elif "فودافون" in n or "vodafone" in n or "فودا" in n:
+    elif "فودافون" in clean_name or "vodafone" in clean_name or "فودا" in clean_name:
         return E_VODAFONE
-    elif "انوى" in n or "انوي" in n or "inwi" in n:
+    elif "انوى" in clean_name or "انوي" in clean_name or "inwi" in clean_name:
         return E_INWI
-    elif "اتصالات" in n or "etisalat" in n or "إتصالات" in n:
+    elif "اتصالات" in clean_name or "etisalat" in clean_name or "إتصالات" in clean_name:
         return E_ETISALAT
     return E["star"]
 
@@ -292,11 +327,13 @@ def send_home(chat_id):
     rows = cur.fetchall()
     btns = []
     for r in rows:
-        emoji_id = get_network_emoji(r[1])
+        clean_btn_name, custom_id = parse_section_emoji(r[1])
+        icon_id = custom_id if custom_id else get_network_emoji(clean_btn_name)
+
         if r[3] == "open":
-            btns.append(InlineKeyboardButton(f"{r[1]}", callback_data=f"sec_{r[0]}", style="primary", icon_custom_emoji_id=emoji_id))
+            btns.append(InlineKeyboardButton(clean_btn_name, callback_data=f"sec_{r[0]}", style="primary", icon_custom_emoji_id=icon_id))
         else:
-            btns.append(InlineKeyboardButton(f"🔒 {r[1]}", callback_data=f"sec_closed_{r[0]}", style="danger", icon_custom_emoji_id=E["lock"]))
+            btns.append(InlineKeyboardButton(f"🔒 {clean_btn_name}", callback_data=f"sec_closed_{r[0]}", style="danger", icon_custom_emoji_id=E["lock"]))
     if btns:
         kb.add(*btns)
 
@@ -334,7 +371,6 @@ def cmd_start(msg):
                          parse_mode="HTML", reply_markup=get_admin_markup(uid))
         return
 
-    # إشعار الأدمن — مرة واحدة بس أول دخول
     if is_new:
         cur.execute("SELECT COUNT(*) FROM users")
         total = cur.fetchone()[0]
@@ -347,7 +383,6 @@ def cmd_start(msg):
             )
         except: pass
 
-    # فحص الاشتراك الإجباري
     not_joined = check_subscribe(u.id)
     if not_joined:
         bot.send_message(msg.chat.id,
@@ -419,7 +454,8 @@ def sec_closed(call):
     sec_id = int(call.data.split("_")[2])
     cur.execute("SELECT name FROM sections WHERE id=?", (sec_id,))
     r = cur.fetchone()
-    bot.answer_callback_query(call.id, f"🔒 قسم {r[0] if r else ''} مغلق حالياً!", show_alert=True)
+    clean_name, _ = parse_section_emoji(r[0]) if r else ('', None)
+    bot.answer_callback_query(call.id, f"🔒 قسم {clean_name} مغلق حالياً!", show_alert=True)
 
 # ══════════════════════════════════════
 # 📂 قسم مفتوح
@@ -476,7 +512,6 @@ def handle_photo(msg):
     state = states.get(uid, {})
     step  = state.get("step")
 
-    # أدمن: تغيير صورة الترحيب
     if is_admin(uid) and step == "set_photo":
         ss("welcome_photo", msg.photo[-1].file_id)
         states.pop(uid, None)
@@ -484,7 +519,6 @@ def handle_photo(msg):
                          parse_mode="HTML", reply_markup=get_admin_markup(uid))
         return
 
-    # أدمن: رد بصورة على عميل
     if is_admin(uid) and step == "admin_reply":
         req_id = state.get("req_id")
         cur.execute("SELECT user_id FROM requests WHERE id=?", (req_id,))
@@ -503,7 +537,6 @@ def handle_photo(msg):
         states.pop(uid, None)
         return
 
-    # عميل: سكرين التحويل
     if step == "wait_screenshot":
         state["screenshot"] = msg.photo[-1].file_id
         state["step"]       = "wait_phone"
@@ -523,10 +556,10 @@ def handle_photo(msg):
 def handle_text(msg):
     uid   = msg.from_user.id
     text  = msg.text.strip()
+    html_text_val = get_html_text(msg).strip()
     state = states.get(uid, {})
     step  = state.get("step")
 
-    # أدمن: رد نصي على عميل
     if is_admin(uid) and step == "admin_reply":
         req_id = state.get("req_id")
         cur.execute("SELECT user_id FROM requests WHERE id=?", (req_id,))
@@ -537,14 +570,13 @@ def handle_text(msg):
                 InlineKeyboardButton("✅ تم الاستلام", callback_data=f"cli_confirm_{req_id}", style="success", icon_custom_emoji_id=E["check"]),
                 InlineKeyboardButton("❌ في مشكلة",    callback_data=f"cli_issue_{req_id}", style="danger")
             )
-            bot.send_message(r[0], f"{ce(E['bell'])} <b>رد من الادارة:</b>\n\n{text}",
+            bot.send_message(r[0], f"{ce(E['bell'])} <b>رد من الادارة:</b>\n\n{html_text_val}",
                              parse_mode="HTML", reply_markup=kb)
             bot.send_message(uid, f"{ce(E['check'])} <b>تم ارسال الرد للعميل.</b>",
                              parse_mode="HTML", reply_markup=get_admin_markup(uid))
         states.pop(uid, None)
         return
 
-    # أدمن: إعدادات
     if is_admin(uid) and step:
         if step == "set_cash":
             ss("cash_number", text)
@@ -565,17 +597,17 @@ def handle_text(msg):
                              parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
         elif step == "set_welcome_msg":
-            ss("welcome_message", text)
+            ss("welcome_message", html_text_val)
             states.pop(uid, None)
             bot.send_message(uid, f"{ce(E['check'])} <b>تم تغيير رسالة الترحيب.</b>",
                              parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
         elif step == "add_sec_name":
-            state["sec_name"] = text
+            state["sec_name"] = html_text_val
             state["step"]     = "add_sec_price"
             states[uid]       = state
             bot.send_message(uid,
-                             f"{ce(E['star'])} <b>اسم القسم:</b> {text}\n\nدلوقتي ابعت <b>السعر</b> (ارقام فقط):",
+                             f"{ce(E['star'])} <b>اسم القسم:</b> {html_text_val}\n\nدلوقتي ابعت <b>السعر</b> (ارقام فقط):",
                              parse_mode="HTML")
 
         elif step == "add_sec_price":
@@ -596,7 +628,7 @@ def handle_text(msg):
             sent  = 0
             for (u_id,) in users:
                 try:
-                    bot.send_message(u_id, f"{ce(E['bell'])} <b>اذاعة من الادارة:</b>\n\n{text}",
+                    bot.send_message(u_id, f"{ce(E['bell'])} <b>اذاعة من الادارة:</b>\n\n{html_text_val}",
                                      parse_mode="HTML")
                     sent += 1
                 except: pass
@@ -626,7 +658,6 @@ def handle_text(msg):
             new_admin_id = int(text)
             if new_admin_id == ADMIN_ID:
                 bot.send_message(uid, "❌ ده انت نفسك يا اسطى 😄"); return
-            # جيب بيانات اليوزر من تيليجرام
             try:
                 chat = bot.get_chat(new_admin_id)
                 uname = chat.username or ""
@@ -642,7 +673,6 @@ def handle_text(msg):
                              f"{ce(E['check'])} <b>تم اضافة الادمن:</b>\n"
                              f"👤 {display}\n🆔 <code>{new_admin_id}</code>",
                              parse_mode="HTML", reply_markup=get_admin_markup(uid))
-            # اشعر الادمن الجديد
             try:
                 bot.send_message(new_admin_id,
                                  f"{ce(E['shield'])} <b>اهلا! تم تعيينك مشرف في البوت.</b>\n\n"
@@ -651,7 +681,6 @@ def handle_text(msg):
             except: pass
         return
 
-    # عميل: رقم التحويل
     if step == "wait_phone":
         state["phone"] = text
         state["step"]  = "wait_target"
@@ -665,7 +694,6 @@ def handle_text(msg):
                          parse_mode="HTML", reply_markup=kb)
         return
 
-    # عميل: الرقم التارجت
     if step == "wait_target":
         target_number = text
         phone         = state.get("phone", "")
@@ -729,7 +757,6 @@ def adm_cb(call):
         bot.edit_message_text(f"{ce(E['money'])} ابعت رقم الكاش الجديد:",
                               cid, mid, parse_mode="HTML")
 
-    # ── إدارة الأدمنز (أدمن رئيسي فقط) ──
     elif d == "adm_admins":
         if not is_owner(uid):
             bot.answer_callback_query(call.id, "❌ مش مسموح!", show_alert=True); return
@@ -765,7 +792,6 @@ def adm_cb(call):
         cur.execute("DELETE FROM admins WHERE id=?", (del_id,))
         conn.commit()
         bot.answer_callback_query(call.id, "🗑️ تم حذف الادمن!")
-        # refresh list
         cur.execute("SELECT id, username, full_name FROM admins")
         rows = cur.fetchall()
         kb = InlineKeyboardMarkup(row_width=1)
@@ -836,7 +862,6 @@ def adm_cb(call):
             cid, mid, parse_mode="HTML", reply_markup=kb
         )
 
-    # ── الاشتراك الإجباري ──
     elif d == "adm_force":
         cur.execute("SELECT id, title, channel FROM force_channels")
         rows = cur.fetchall()
@@ -864,7 +889,6 @@ def adm_cb(call):
         cur.execute("DELETE FROM force_channels WHERE id=?", (fid,))
         conn.commit()
         bot.answer_callback_query(call.id, "🗑️ تم الحذف!")
-        # تحديث القائمة
         cur.execute("SELECT id, title, channel FROM force_channels")
         rows = cur.fetchall()
         kb = InlineKeyboardMarkup(row_width=1)
@@ -877,7 +901,6 @@ def adm_cb(call):
             cid, mid, parse_mode="HTML", reply_markup=kb
         )
 
-    # ── الطلبات المعلقة ──
     elif d == "adm_pending":
         cur.execute("SELECT id, full_name, section_name, section_price FROM requests WHERE status='pending' LIMIT 15")
         rows = cur.fetchall()
@@ -885,8 +908,9 @@ def adm_cb(call):
             bot.answer_callback_query(call.id, "✅ مفيش طلبات معلقة!", show_alert=True); return
         kb = InlineKeyboardMarkup(row_width=1)
         for r in rows:
+            clean_sec_name, _ = parse_section_emoji(r[2])
             kb.add(InlineKeyboardButton(
-                f"#{r[0]} ┃ {r[1]} ┃ {r[2]} — {r[3]}ج",
+                f"#{r[0]} ┃ {r[1]} ┃ {clean_sec_name} — {r[3]}ج",
                 callback_data=f"adm_view_{r[0]}"
             ))
         kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
@@ -922,7 +946,6 @@ def adm_cb(call):
         else:
             bot.edit_message_text(text, cid, mid, parse_mode="HTML", reply_markup=kb)
 
-    # ── قبول الطلب ──
     elif d.startswith("adm_accept_"):
         req_id = int(d.split("_")[2])
         cur.execute("UPDATE requests SET status='accepted' WHERE id=?", (req_id,))
@@ -942,7 +965,6 @@ def adm_cb(call):
                          f"{ce(E['arrow'])} <b>ابعت البيانات للعميل</b> (نص او صورة) — طلب #{req_id}:",
                          parse_mode="HTML")
 
-    # ── رفض الطلب ──
     elif d.startswith("adm_reject_"):
         req_id = int(d.split("_")[2])
         cur.execute("UPDATE requests SET status='rejected' WHERE id=?", (req_id,))
@@ -961,7 +983,6 @@ def adm_cb(call):
         try: bot.edit_message_reply_markup(cid, mid, reply_markup=None)
         except: pass
 
-    # ── إدارة الأقسام ──
     elif d == "adm_sections":
         cur.execute("SELECT id, name, price, status FROM sections")
         rows = cur.fetchall()
@@ -970,9 +991,10 @@ def adm_cb(call):
         kb = InlineKeyboardMarkup(row_width=1)
         for r in rows:
             icon = "🟢" if r[3] == "open" else "🔴"
-            emoji_id = get_network_emoji(r[1])
-            kb.add(InlineKeyboardButton(f"{icon} {r[1]} — {r[2]} جنيه",
-                                         callback_data=f"adm_secmng_{r[0]}", icon_custom_emoji_id=emoji_id))
+            clean_sec_name, custom_id = parse_section_emoji(r[1])
+            icon_id = custom_id if custom_id else get_network_emoji(clean_sec_name)
+            kb.add(InlineKeyboardButton(f"{icon} {clean_sec_name} — {r[2]} جنيه",
+                                         callback_data=f"adm_secmng_{r[0]}", icon_custom_emoji_id=icon_id))
         kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
         bot.edit_message_text(f"{ce(E['key'])} <b>ادارة الاقسام:</b>",
                               cid, mid, parse_mode="HTML", reply_markup=kb)
@@ -1004,7 +1026,7 @@ def adm_cb(call):
         parts      = d.split("_")
         sec_id     = int(parts[2])
         new_status = parts[3]
-        cur.execute("UPDATE sections SET status=? WHERE id=?", (new_status, sec_id))
+        cur.execute("UPDATE sections SET status=? WHERE id=?", (sec_id,))
         conn.commit()
         label = "فتح" if new_status == "open" else "اغلاق"
         bot.answer_callback_query(call.id, f"✅ تم {label} القسم!")
@@ -1039,9 +1061,10 @@ def adm_cb(call):
         kb   = InlineKeyboardMarkup(row_width=1)
         for r in rows:
             icon = "🟢" if r[3] == "open" else "🔴"
-            emoji_id = get_network_emoji(r[1])
-            kb.add(InlineKeyboardButton(f"{icon} {r[1]} — {r[2]} جنيه",
-                                         callback_data=f"adm_secmng_{r[0]}", icon_custom_emoji_id=emoji_id))
+            clean_sec_name, custom_id = parse_section_emoji(r[1])
+            icon_id = custom_id if custom_id else get_network_emoji(clean_sec_name)
+            kb.add(InlineKeyboardButton(f"{icon} {clean_sec_name} — {r[2]} جنيه",
+                                         callback_data=f"adm_secmng_{r[0]}", icon_custom_emoji_id=icon_id))
         kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
         bot.edit_message_text(f"{ce(E['key'])} <b>ادارة الاقسام:</b>",
                               cid, mid, parse_mode="HTML", reply_markup=kb)
@@ -1057,7 +1080,6 @@ def adm_cb(call):
 def cli_confirm(call):
     req_id = int(call.data.split("_")[2])
 
-    # العميل يأكد الاستلام
     txt = f"{ce(E['check'])} <b>تم تاكيد الاستلام! شكراً لتعاملك معنا.</b>"
     try:
         bot.edit_message_caption(caption=txt, chat_id=call.message.chat.id,
@@ -1068,7 +1090,6 @@ def cli_confirm(call):
                                    call.message.message_id, parse_mode="HTML")
         except: pass
 
-    # إشعار الأدمن + زرار "الرد بالبيانات"
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("📤 الرد بالبيانات", callback_data=f"adm_accept_{req_id}", style="success", icon_custom_emoji_id=E["check"]))
     
