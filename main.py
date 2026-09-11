@@ -113,7 +113,6 @@ def send_admin_notification(text, photo=None, reply_markup=None):
         except Exception:
             continue
 
-# تحويل الإيموجي المميز فقط إلى HTML ونبذ النص المكرر
 def get_html_text(msg):
     if not msg.text:
         return ""
@@ -133,7 +132,6 @@ def get_html_text(msg):
 
     return text
 
-# فصل الـ ID المخصص وتنظيف اسم القسم من أي رموز ثانوية
 def parse_section_emoji(html_text):
     match = re.search(r'emoji-id="(\d+)"', html_text)
     emoji_id = match.group(1) if match else None
@@ -171,6 +169,12 @@ E = {
     "eye": "5235794253149394263",
     "key": "5461128651477111908"
 }
+
+# زرار رجوع عام للأدمن
+def back_admin_kb():
+    kb = InlineKeyboardMarkup()
+    kb.add(InlineKeyboardButton("🔙 رجوع للوحة الأدمن", callback_data="adm_back", style="danger"))
+    return kb
 
 # ══════════════════════════════════════
 # 📣 الاشتراك الإجباري
@@ -269,6 +273,7 @@ def get_admin_markup(uid):
 def cmd_admin(msg):
     uid = msg.from_user.id
     if not is_admin(uid): return
+    states.pop(uid, None)
     title = f"{ce(E['crown'])} <b>لوحة الادمن</b>" if is_owner(uid) else f"{ce(E['shield'])} <b>لوحة المشرف</b>"
     bot.send_message(msg.chat.id, title, parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
@@ -331,6 +336,7 @@ def send_home(chat_id):
 def cmd_start(msg):
     u = msg.from_user
     uid = u.id
+    states.pop(uid, None)
     cur.execute("SELECT id FROM users WHERE id=?", (uid,))
     is_new = not cur.fetchone()
     if is_new:
@@ -473,7 +479,7 @@ def handle_photo(msg):
     if is_admin(uid) and step == "set_photo":
         ss("welcome_photo", msg.photo[-1].file_id)
         states.pop(uid, None)
-        bot.send_message(uid, f"{ce(E['check'])} <b>تم تغيير صورة الترحيب!</b>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
+        bot.send_message(uid, f"{ce(E['check'])} <b>تم تغيير صورة الترحيب بنجاح!</b>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
         return
 
     if is_admin(uid) and step == "admin_reply":
@@ -530,38 +536,46 @@ def handle_text(msg):
         if step == "set_cash":
             ss("cash_number", text)
             states.pop(uid, None)
-            bot.send_message(uid, f"{ce(E['money'])} <b>رقم الكاش:</b> <code>{text}</code>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            bot.send_message(uid, f"{ce(E['money'])} <b>تم تغيير رقم الكاش إلى:</b> <code>{text}</code>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
         elif step == "set_trust":
             ss("trust_channel", text)
             states.pop(uid, None)
-            bot.send_message(uid, f"{ce(E['check'])} <b>قناة الثقة:</b> {text}", parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            bot.send_message(uid, f"{ce(E['check'])} <b>تم تغيير قناة الثقة إلى:</b> {text}", parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
         elif step == "set_support":
             ss("support_username", text)
             states.pop(uid, None)
-            bot.send_message(uid, f"{ce(E['check'])} <b>حساب الدعم:</b> {text}", parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            bot.send_message(uid, f"{ce(E['check'])} <b>تم تغيير حساب الدعم إلى:</b> {text}", parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
         elif step == "set_welcome_msg":
             ss("welcome_message", html_text_val)
             states.pop(uid, None)
-            bot.send_message(uid, f"{ce(E['check'])} <b>تم تغيير رسالة الترحيب.</b>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            bot.send_message(uid, f"{ce(E['check'])} <b>تم تغيير رسالة الترحيب بنجاح.</b>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
         elif step == "add_sec_name":
             state["sec_name"] = html_text_val
             state["step"]     = "add_sec_price"
             states[uid]       = state
-            bot.send_message(uid, f"{ce(E['star'])} <b>اسم القسم:</b> {html_text_val}\n\nدلوقتي ابعت <b>السعر</b> (ارقام فقط):", parse_mode="HTML")
+            bot.send_message(uid, f"{ce(E['star'])} <b>اسم القسم:</b> {html_text_val}\n\n🏷️ <b>دلوقتي ارسل سعر هذا القسم (أرقام فقط):</b>", parse_mode="HTML", reply_markup=back_admin_kb())
 
         elif step == "add_sec_price":
             if not text.isdigit():
-                bot.send_message(uid, "❌ ابعت رقم صحيح!"); return
+                bot.send_message(uid, "❌ يرجى إرسال أرقام فقط للسعر!", reply_markup=back_admin_kb())
+                return
             name  = state["sec_name"]
             price = int(text)
             cur.execute("INSERT INTO sections(name,price) VALUES(?,?)", (name, price))
             conn.commit()
             states.pop(uid, None)
-            bot.send_message(uid, f"{ce(E['check'])} <b>تم اضافة القسم:</b>\n📂 {name} — {price} جنيه", parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            
+            clean_name, _ = parse_section_emoji(name)
+            bot.send_message(
+                uid, 
+                f"{ce(E['check'])} <b>تم إضافة القسم بنجاح! 🎉</b>\n\n📂 <b>الاسم:</b> {clean_name}\n💰 <b>السعر:</b> {price} جنيه", 
+                parse_mode="HTML", 
+                reply_markup=get_admin_markup(uid)
+            )
 
         elif step == "broadcast":
             cur.execute("SELECT id FROM users")
@@ -585,16 +599,16 @@ def handle_text(msg):
                 states.pop(uid, None)
                 bot.send_message(uid, f"{ce(E['check'])} <b>تم اضافة قناة الاشتراك الاجباري:</b>\n{title}", parse_mode="HTML", reply_markup=get_admin_markup(uid))
             except Exception as e:
-                bot.send_message(uid, f"❌ تاكد ان البوت ادمن في القناة!\nالخطأ: {e}")
+                bot.send_message(uid, f"❌ تاكد ان البوت ادمن في القناة!\nالخطأ: {e}", reply_markup=back_admin_kb())
 
         elif step == "add_admin":
             if not is_owner(uid):
                 states.pop(uid, None); return
             if not text.isdigit():
-                bot.send_message(uid, "❌ ابعت رقم ID صحيح (ارقام فقط)!"); return
+                bot.send_message(uid, "❌ ابعت رقم ID صحيح (ارقام فقط)!", reply_markup=back_admin_kb()); return
             new_admin_id = int(text)
             if new_admin_id == ADMIN_ID:
-                bot.send_message(uid, "❌ ده انت نفسك يا اسطى 😄"); return
+                bot.send_message(uid, "❌ ده انت نفسك يا اسطى 😄", reply_markup=back_admin_kb()); return
             try:
                 chat = bot.get_chat(new_admin_id)
                 uname = chat.username or ""
@@ -671,7 +685,7 @@ def adm_cb(call):
             bot.answer_callback_query(call.id, "❌ الأدمن الرئيسي بس اللي يقدر يغير رقم الكاش!", show_alert=True)
             return
         states[uid] = {"step": "set_cash"}
-        bot.edit_message_text(f"{ce(E['money'])} ابعت رقم الكاش الجديد:", cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['money'])} ابعت رقم الكاش الجديد:", cid, mid, parse_mode="HTML", reply_markup=back_admin_kb())
 
     elif d == "adm_admins":
         if not is_owner(uid):
@@ -683,14 +697,14 @@ def adm_cb(call):
             name_display = r[2] or r[1] or str(r[0])
             kb.add(InlineKeyboardButton(f"🗑️ حذف: {name_display}", callback_data=f"adm_deladmin_{r[0]}", style="danger"))
         kb.add(InlineKeyboardButton("➕ اضافة ادمن", callback_data="adm_addadmin", style="success"))
-        kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
+        kb.add(InlineKeyboardButton("🔙 رجوع للوحة الأدمن", callback_data="adm_back", style="danger"))
         bot.edit_message_text(f"{ce(E['crown'])} <b>ادارة الادمنز</b>\n\nعدد الادمنز الفرعيين: <b>{len(rows)}</b>", cid, mid, parse_mode="HTML", reply_markup=kb)
 
     elif d == "adm_addadmin":
         if not is_owner(uid):
             bot.answer_callback_query(call.id, "❌ مش مسموح!", show_alert=True); return
         states[uid] = {"step": "add_admin"}
-        bot.edit_message_text(f"{ce(E['arrow'])} ابعت الـ ID بتاع الادمن الجديد:", cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['arrow'])} ابعت الـ ID بتاع الادمن الجديد:", cid, mid, parse_mode="HTML", reply_markup=back_admin_kb())
 
     elif d.startswith("adm_deladmin_"):
         if not is_owner(uid):
@@ -706,32 +720,32 @@ def adm_cb(call):
             name_display = r[2] or r[1] or str(r[0])
             kb.add(InlineKeyboardButton(f"🗑️ حذف: {name_display}", callback_data=f"adm_deladmin_{r[0]}", style="danger"))
         kb.add(InlineKeyboardButton("➕ اضافة ادمن", callback_data="adm_addadmin", style="success"))
-        kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
+        kb.add(InlineKeyboardButton("🔙 رجوع للوحة الأدمن", callback_data="adm_back", style="danger"))
         bot.edit_message_text(f"{ce(E['crown'])} <b>ادارة الادمنز</b>\n\nعدد الادمنز الفرعيين: <b>{len(rows)}</b>", cid, mid, parse_mode="HTML", reply_markup=kb)
 
     elif d == "adm_trust":
         states[uid] = {"step": "set_trust"}
-        bot.edit_message_text(f"{ce(E['star'])} ابعت يوزرنيم قناة الثقة (مثال: @channel):", cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['star'])} ابعت يوزرنيم قناة الثقة (مثال: @channel):", cid, mid, parse_mode="HTML", reply_markup=back_admin_kb())
 
     elif d == "adm_support":
         states[uid] = {"step": "set_support"}
-        bot.edit_message_text(f"{ce(E['shield'])} ابعت يوزرنيم الدعم (مثال: @support):", cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['shield'])} ابعت يوزرنيم الدعم (مثال: @support):", cid, mid, parse_mode="HTML", reply_markup=back_admin_kb())
 
     elif d == "adm_welcome_msg":
         states[uid] = {"step": "set_welcome_msg"}
-        bot.edit_message_text(f"{ce(E['wave'])} ابعت رسالة الترحيب الجديدة:", cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['wave'])} ابعت رسالة الترحيب الجديدة:", cid, mid, parse_mode="HTML", reply_markup=back_admin_kb())
 
     elif d == "adm_welcome_photo":
         states[uid] = {"step": "set_photo"}
-        bot.edit_message_text(f"{ce(E['eye'])} ابعت صورة الترحيب:", cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['eye'])} ابعت صورة الترحيب:", cid, mid, parse_mode="HTML", reply_markup=back_admin_kb())
 
     elif d == "adm_add_section":
         states[uid] = {"step": "add_sec_name"}
-        bot.edit_message_text(f"{ce(E['fire'])} ابعت اسم القسم ومعاه الايموجي المميز بتاعه فقط:", cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['fire'])} <b>ابعت اسم القسم الجديد مع الإيموجي المميز بتاعه فقط:</b>", cid, mid, parse_mode="HTML", reply_markup=back_admin_kb())
 
     elif d == "adm_broadcast":
         states[uid] = {"step": "broadcast"}
-        bot.edit_message_text(f"{ce(E['bell'])} ابعت رسالة الاذاعة:", cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['bell'])} ابعت رسالة الاذاعة:", cid, mid, parse_mode="HTML", reply_markup=back_admin_kb())
 
     elif d == "adm_users":
         cur.execute("SELECT COUNT(*) FROM users")
@@ -749,7 +763,7 @@ def adm_cb(call):
         users = cur.fetchone()[0]
         cash = gs("cash_number")
         kb = InlineKeyboardMarkup()
-        kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
+        kb.add(InlineKeyboardButton("🔙 رجوع للوحة الأدمن", callback_data="adm_back", style="danger"))
         bot.edit_message_text(
             f"{ce(E['crown'])} <b>الاحصائيات</b>\n\n👥 المستخدمين: <b>{users}</b>\n📋 الطلبات الكلية: <b>{total}</b>\n⏳ معلقة: <b>{pending}</b>\n✅ مقبولة: <b>{accepted}</b>\n{ce(E['money'])} رقم الكاش: <code>{cash}</code>",
             cid, mid, parse_mode="HTML", reply_markup=kb
@@ -762,12 +776,12 @@ def adm_cb(call):
         for r in rows:
             kb.add(InlineKeyboardButton(f"🗑️ حذف: {r[1]}", callback_data=f"adm_delf_{r[0]}", style="danger"))
         kb.add(InlineKeyboardButton("➕ اضافة قناة/جروب", callback_data="adm_addf"))
-        kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
+        kb.add(InlineKeyboardButton("🔙 رجوع للوحة الأدمن", callback_data="adm_back", style="danger"))
         bot.edit_message_text(f"{ce(E['lock'])} <b>الاشتراك الاجباري</b>\n\nالقنوات الحالية: <b>{len(rows)}</b>", cid, mid, parse_mode="HTML", reply_markup=kb)
 
     elif d == "adm_addf":
         states[uid] = {"step": "add_force_channel"}
-        bot.edit_message_text(f"{ce(E['arrow'])} ابعت يوزرنيم القناة او الجروب:\n(مثال: @mychannel)", cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['arrow'])} ابعت يوزرنيم القناة او الجروب:\n(مثال: @mychannel)", cid, mid, parse_mode="HTML", reply_markup=back_admin_kb())
 
     elif d.startswith("adm_delf_"):
         fid = int(d.split("_")[2])
@@ -780,7 +794,7 @@ def adm_cb(call):
         for r in rows:
             kb.add(InlineKeyboardButton(f"🗑️ حذف: {r[1]}", callback_data=f"adm_delf_{r[0]}", style="danger"))
         kb.add(InlineKeyboardButton("➕ اضافة قناة/جروب", callback_data="adm_addf"))
-        kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
+        kb.add(InlineKeyboardButton("🔙 رجوع للوحة الأدمن", callback_data="adm_back", style="danger"))
         bot.edit_message_text(f"{ce(E['lock'])} <b>الاشتراك الاجباري</b>\n\nالقنوات الحالية: <b>{len(rows)}</b>", cid, mid, parse_mode="HTML", reply_markup=kb)
 
     elif d == "adm_pending":
@@ -792,7 +806,7 @@ def adm_cb(call):
         for r in rows:
             clean_sec_name, _ = parse_section_emoji(r[2])
             kb.add(InlineKeyboardButton(f"#{r[0]} ┃ {r[1]} ┃ {clean_sec_name} — {r[3]}ج", callback_data=f"adm_view_{r[0]}"))
-        kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
+        kb.add(InlineKeyboardButton("🔙 رجوع للوحة الأدمن", callback_data="adm_back", style="danger"))
         bot.edit_message_text(f"{ce(E['bell'])} <b>الطلبات المعلقة:</b>", cid, mid, parse_mode="HTML", reply_markup=kb)
 
     elif d.startswith("adm_view_"):
@@ -836,7 +850,7 @@ def adm_cb(call):
         bot.answer_callback_query(call.id, "✅ تم القبول! ابعت البيانات دلوقتي.")
         try: bot.edit_message_reply_markup(cid, mid, reply_markup=None)
         except: pass
-        bot.send_message(uid, f"{ce(E['arrow'])} <b>ابعت البيانات للعميل</b> (نص او صورة) — طلب #{req_id}:", parse_mode="HTML")
+        bot.send_message(uid, f"{ce(E['arrow'])} <b>ابعت البيانات للعميل</b> (نص او صورة) — طلب #{req_id}:", parse_mode="HTML", reply_markup=back_admin_kb())
 
     elif d.startswith("adm_reject_"):
         req_id = int(d.split("_")[2])
@@ -857,7 +871,7 @@ def adm_cb(call):
         cur.execute("SELECT id, name, price, status FROM sections")
         rows = cur.fetchall()
         if not rows:
-            bot.answer_callback_query(call.id, "مفيش اقسام بعد!"); return
+            bot.answer_callback_query(call.id, "مفيش اقسام بعد!", show_alert=True); return
         kb = InlineKeyboardMarkup(row_width=1)
         for r in rows:
             icon = "🟢" if r[3] == "open" else "🔴"
@@ -872,7 +886,7 @@ def adm_cb(call):
                 
             kb.add(InlineKeyboardButton(**btn_kwargs))
             
-        kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
+        kb.add(InlineKeyboardButton("🔙 رجوع للوحة الأدمن", callback_data="adm_back", style="danger"))
         bot.edit_message_text(f"{ce(E['key'])} <b>ادارة الاقسام:</b>", cid, mid, parse_mode="HTML", reply_markup=kb)
 
     elif d.startswith("adm_secmng_"):
@@ -889,7 +903,7 @@ def adm_cb(call):
             InlineKeyboardButton(toggle_text, callback_data=f"adm_sectog_{sec_id}_{toggle_val}", style="primary"),
             InlineKeyboardButton("🗑️ حذف",   callback_data=f"adm_secdel_{sec_id}", style="danger")
         )
-        kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_sections", style="danger"))
+        kb.add(InlineKeyboardButton("🔙 رجوع قائمة الأقسام", callback_data="adm_sections", style="danger"))
         bot.edit_message_text(
             f"{ce(E['lock'])} <b>ادارة القسم</b>\n\n📂 الاسم: {r[0]}\n{ce(E['money'])} السعر: {r[1]} جنيه\n📌 الحالة: {status_text}",
             cid, mid, parse_mode="HTML", reply_markup=kb
@@ -915,7 +929,7 @@ def adm_cb(call):
             InlineKeyboardButton(toggle_text, callback_data=f"adm_sectog_{sec_id}_{toggle_val}", style="primary"),
             InlineKeyboardButton("🗑️ حذف",   callback_data=f"adm_secdel_{sec_id}", style="danger")
         )
-        kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_sections", style="danger"))
+        kb.add(InlineKeyboardButton("🔙 رجوع قائمة الأقسام", callback_data="adm_sections", style="danger"))
         bot.edit_message_text(
             f"{ce(E['lock'])} <b>ادارة القسم</b>\n\n📂 الاسم: {r[0]}\n{ce(E['money'])} السعر: {r[1]} جنيه\n📌 الحالة: {status_text}",
             cid, mid, parse_mode="HTML", reply_markup=kb
@@ -942,12 +956,16 @@ def adm_cb(call):
                 
             kb.add(InlineKeyboardButton(**btn_kwargs))
             
-        kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
+        kb.add(InlineKeyboardButton("🔙 رجوع للوحة الأدمن", callback_data="adm_back", style="danger"))
         bot.edit_message_text(f"{ce(E['key'])} <b>ادارة الاقسام:</b>", cid, mid, parse_mode="HTML", reply_markup=kb)
 
     elif d == "adm_back":
+        states.pop(uid, None)
         title = f"{ce(E['crown'])} <b>لوحة الادمن</b>" if is_owner(uid) else f"{ce(E['shield'])} <b>لوحة المشرف</b>"
-        bot.edit_message_text(title, cid, mid, parse_mode="HTML", reply_markup=get_admin_markup(uid))
+        try:
+            bot.edit_message_text(title, cid, mid, parse_mode="HTML", reply_markup=get_admin_markup(uid))
+        except:
+            bot.send_message(cid, title, parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
 # ══════════════════════════════════════
 # ✅ تأكيد الاستلام من العميل
