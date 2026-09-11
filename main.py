@@ -1,4 +1,5 @@
-import subprocess, sys
+import subprocess
+import sys
 
 def install(pkg):
     subprocess.check_call([sys.executable, "-m", "pip", "install", pkg, "--break-system-packages", "-q"])
@@ -170,7 +171,6 @@ E = {
     "key": "5461128651477111908"
 }
 
-# زرار رجوع عام للأدمن
 def back_admin_kb():
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("🔙 رجوع للوحة الأدمن", callback_data="adm_back", style="danger"))
@@ -188,7 +188,7 @@ def check_subscribe(user_id):
             member = bot.get_chat_member(ch, user_id)
             if member.status in ["left", "kicked"]:
                 not_joined.append(ch)
-        except:
+        except Exception:
             not_joined.append(ch)
     return not_joined
 
@@ -200,7 +200,7 @@ def subscribe_markup(not_joined):
             title = chat.title or ch
             link  = f"https://t.me/{ch.lstrip('@')}"
             kb.add(InlineKeyboardButton(f"📣 {title}", url=link))
-        except:
+        except Exception:
             kb.add(InlineKeyboardButton(f"📣 {ch}", url=f"https://t.me/{ch.lstrip('@')}"))
     kb.add(InlineKeyboardButton("✅ اشتركت! تحقق", callback_data="check_sub", style="success", icon_custom_emoji_id=E["check"]))
     return kb
@@ -325,9 +325,17 @@ def send_home(chat_id):
         try:
             bot.send_photo(chat_id, photo, caption=welcome, reply_markup=kb, parse_mode="HTML")
             return
-        except:
-            ss("welcome_photo", "")
-    bot.send_message(chat_id, welcome, reply_markup=kb, parse_mode="HTML")
+        except Exception:
+            try:
+                bot.send_photo(chat_id, photo, caption=welcome, reply_markup=kb)
+                return
+            except Exception:
+                ss("welcome_photo", "")
+
+    try:
+        bot.send_message(chat_id, welcome, reply_markup=kb, parse_mode="HTML")
+    except Exception:
+        bot.send_message(chat_id, welcome, reply_markup=kb)
 
 # ══════════════════════════════════════
 # /start والاشتراك
@@ -359,7 +367,7 @@ def cmd_start(msg):
                 f"🆔 <code>{u.id}</code>\n"
                 f"👥 اجمالي المستخدمين: <b>{total}</b>"
             )
-        except: pass
+        except Exception: pass
 
     not_joined = check_subscribe(u.id)
     if not_joined:
@@ -378,11 +386,11 @@ def do_check_sub(call):
         try:
             bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
                                           reply_markup=subscribe_markup(not_joined))
-        except: pass
+        except Exception: pass
     else:
         bot.answer_callback_query(call.id, "✅ تم التحقق! اهلا بك")
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
-        except: pass
+        except Exception: pass
         send_home(call.message.chat.id)
 
 @bot.callback_query_handler(func=lambda c: c.data == "my_stats")
@@ -408,13 +416,13 @@ def my_stats(call):
 
     try:
         bot.edit_message_text(text, call.message.chat.id, call.message.message_id, parse_mode="HTML", reply_markup=kb)
-    except:
+    except Exception:
         bot.send_message(call.message.chat.id, text, parse_mode="HTML", reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda c: c.data == "go_home")
 def go_home(call):
     try: bot.delete_message(call.message.chat.id, call.message.message_id)
-    except: pass
+    except Exception: pass
     send_home(call.message.chat.id)
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("sec_closed_"))
@@ -457,14 +465,14 @@ def sec_selected(call):
 
     try:
         bot.edit_message_text(text, call.message.chat.id, call.message.message_id, parse_mode="HTML", reply_markup=kb)
-    except:
+    except Exception:
         bot.send_message(call.message.chat.id, text, parse_mode="HTML", reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda c: c.data == "cancel")
 def do_cancel(call):
     states.pop(call.from_user.id, None)
     try: bot.delete_message(call.message.chat.id, call.message.message_id)
-    except: pass
+    except Exception: pass
     send_home(call.message.chat.id)
 
 # ══════════════════════════════════════
@@ -527,7 +535,11 @@ def handle_text(msg):
                 InlineKeyboardButton("✅ تم الاستلام", callback_data=f"cli_confirm_{req_id}", style="success", icon_custom_emoji_id=E["check"]),
                 InlineKeyboardButton("❌ في مشكلة",    callback_data=f"cli_issue_{req_id}", style="danger")
             )
-            bot.send_message(r[0], f"{ce(E['bell'])} <b>رد من الادارة:</b>\n\n{html_text_val}", parse_mode="HTML", reply_markup=kb)
+            try:
+                bot.send_message(r[0], f"{ce(E['bell'])} <b>رد من الادارة:</b>\n\n{html_text_val}", parse_mode="HTML", reply_markup=kb)
+            except Exception:
+                bot.send_message(r[0], f"رد من الادارة:\n\n{text}", reply_markup=kb)
+            
             bot.send_message(uid, f"{ce(E['check'])} <b>تم ارسال الرد للعميل.</b>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
         states.pop(uid, None)
         return
@@ -551,17 +563,22 @@ def handle_text(msg):
         elif step == "set_welcome_msg":
             ss("welcome_message", html_text_val)
             states.pop(uid, None)
-            bot.send_message(uid, f"{ce(E['check'])} <b>تم تغيير رسالة الترحيب بنجاح.</b>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            bot.send_message(uid, f"{ce(E['check'])} <b>تم تغيير رسالة الترحيب بنجاح!</b>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
         elif step == "add_sec_name":
             state["sec_name"] = html_text_val
             state["step"]     = "add_sec_price"
             states[uid]       = state
-            bot.send_message(uid, f"{ce(E['star'])} <b>اسم القسم:</b> {html_text_val}\n\n🏷️ <b>دلوقتي ارسل سعر هذا القسم (أرقام فقط):</b>", parse_mode="HTML", reply_markup=back_admin_kb())
+            bot.send_message(
+                uid, 
+                f"{ce(E['star'])} <b>تم حفظ الاسم:</b> {html_text_val}\n\n💰 <b>الآن أرسل سعر هذا القسم (أرقام فقط):</b>", 
+                parse_mode="HTML", 
+                reply_markup=back_admin_kb()
+            )
 
         elif step == "add_sec_price":
             if not text.isdigit():
-                bot.send_message(uid, "❌ يرجى إرسال أرقام فقط للسعر!", reply_markup=back_admin_kb())
+                bot.send_message(uid, "❌ يرجى إرسال أرقام فقط للسعر! حاول مرة أخرى:", reply_markup=back_admin_kb())
                 return
             name  = state["sec_name"]
             price = int(text)
@@ -585,7 +602,11 @@ def handle_text(msg):
                 try:
                     bot.send_message(u_id, f"{ce(E['bell'])} <b>اذاعة من الادارة:</b>\n\n{html_text_val}", parse_mode="HTML")
                     sent += 1
-                except: pass
+                except Exception:
+                    try:
+                        bot.send_message(u_id, f"اذاعة من الادارة:\n\n{text}")
+                        sent += 1
+                    except Exception: pass
             states.pop(uid, None)
             bot.send_message(uid, f"{ce(E['check'])} <b>تم الارسال لـ {sent} مستخدم.</b>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
@@ -613,7 +634,7 @@ def handle_text(msg):
                 chat = bot.get_chat(new_admin_id)
                 uname = chat.username or ""
                 fname = chat.first_name or ""
-            except:
+            except Exception:
                 uname, fname = "", ""
             cur.execute("INSERT OR IGNORE INTO admins(id,username,full_name) VALUES(?,?,?)", (new_admin_id, uname, fname))
             conn.commit()
@@ -622,7 +643,7 @@ def handle_text(msg):
             bot.send_message(uid, f"{ce(E['check'])} <b>تم اضافة الادمن:</b>\n👤 {display}\n🆔 <code>{new_admin_id}</code>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
             try:
                 bot.send_message(new_admin_id, f"{ce(E['shield'])} <b>اهلا! تم تعيينك مشرف في البوت.</b>\n\nاستخدم /admin للوصول للوحة التحكم.", parse_mode="HTML")
-            except: pass
+            except Exception: pass
         return
 
     if step == "wait_phone":
@@ -849,7 +870,7 @@ def adm_cb(call):
         states[uid] = {"step": "admin_reply", "req_id": req_id}
         bot.answer_callback_query(call.id, "✅ تم القبول! ابعت البيانات دلوقتي.")
         try: bot.edit_message_reply_markup(cid, mid, reply_markup=None)
-        except: pass
+        except Exception: pass
         bot.send_message(uid, f"{ce(E['arrow'])} <b>ابعت البيانات للعميل</b> (نص او صورة) — طلب #{req_id}:", parse_mode="HTML", reply_markup=back_admin_kb())
 
     elif d.startswith("adm_reject_"):
@@ -865,7 +886,7 @@ def adm_cb(call):
             bot.send_message(r[0], f"{ce(E['shield'])} <b>تم رفض طلبك.</b>\n\nللاستفسار تواصل مع الدعم.", parse_mode="HTML", reply_markup=kb2)
         bot.answer_callback_query(call.id, "❌ تم رفض الطلب!")
         try: bot.edit_message_reply_markup(cid, mid, reply_markup=None)
-        except: pass
+        except Exception: pass
 
     elif d == "adm_sections":
         cur.execute("SELECT id, name, price, status FROM sections")
@@ -964,7 +985,7 @@ def adm_cb(call):
         title = f"{ce(E['crown'])} <b>لوحة الادمن</b>" if is_owner(uid) else f"{ce(E['shield'])} <b>لوحة المشرف</b>"
         try:
             bot.edit_message_text(title, cid, mid, parse_mode="HTML", reply_markup=get_admin_markup(uid))
-        except:
+        except Exception:
             bot.send_message(cid, title, parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
 # ══════════════════════════════════════
@@ -976,10 +997,10 @@ def cli_confirm(call):
     txt = f"{ce(E['check'])} <b>تم تاكيد الاستلام! شكراً لتعاملك معنا.</b>"
     try:
         bot.edit_message_caption(caption=txt, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML")
-    except:
+    except Exception:
         try:
             bot.edit_message_text(txt, call.message.chat.id, call.message.message_id, parse_mode="HTML")
-        except: pass
+        except Exception: pass
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("📤 الرد بالبيانات", callback_data=f"adm_accept_{req_id}", style="success", icon_custom_emoji_id=E["check"]))
@@ -994,10 +1015,10 @@ def cli_issue(call):
     txt = f"{ce(E['shield'])} <b>ناسف على المشكلة! تواصل مع الدعم.</b>"
     try:
         bot.edit_message_caption(caption=txt, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML", reply_markup=kb)
-    except:
+    except Exception:
         try:
             bot.edit_message_text(txt, call.message.chat.id, call.message.message_id, parse_mode="HTML", reply_markup=kb)
-        except: pass
+        except Exception: pass
     send_admin_notification(f"⚠️ <b>العميل ابلغ عن مشكلة في طلب #{req_id}</b>")
 
 # ══════════════════════════════════════
