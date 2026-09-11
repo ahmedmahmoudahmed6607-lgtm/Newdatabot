@@ -1,4 +1,5 @@
 import subprocess, sys
+
 def install(pkg):
     subprocess.check_call([sys.executable, "-m", "pip", "install", pkg, "--break-system-packages", "-q"])
 
@@ -81,7 +82,7 @@ for k, v in {
 conn.commit()
 
 # ══════════════════════════════════════
-# 🛠️ دوال مساعدة
+# 🛠️ دوال معالجة النص والإيموجي
 # ══════════════════════════════════════
 def gs(key):
     cur.execute("SELECT value FROM settings WHERE key=?", (key,))
@@ -112,7 +113,7 @@ def send_admin_notification(text, photo=None, reply_markup=None):
         except Exception:
             continue
 
-# تحويل الكيانات (Entities) إلى HTML للحفاظ على الإيموجي المميز
+# تحويل الإيموجي المميز فقط إلى HTML ونبذ النص المكرر
 def get_html_text(msg):
     if not msg.text:
         return ""
@@ -125,25 +126,18 @@ def get_html_text(msg):
     for entity in entities:
         start = entity.offset
         end = entity.offset + entity.length
-        sub_text = text[start:end]
         
         if entity.type == "custom_emoji":
-            replacement = f'<tg-emoji emoji-id="{entity.custom_emoji_id}">{sub_text}</tg-emoji>'
+            replacement = f'<tg-emoji emoji-id="{entity.custom_emoji_id}">*</tg-emoji>'
             text = text[:start] + replacement + text[end:]
-        elif entity.type == "bold":
-            text = text[:start] + f'<b>{sub_text}</b>' + text[end:]
-        elif entity.type == "italic":
-            text = text[:start] + f'<i>{sub_text}</i>' + text[end:]
-        elif entity.type == "code":
-            text = text[:start] + f'<code>{sub_text}</code>' + text[end:]
 
     return text
 
-# استخراج الـ Custom Emoji ID والنص الصافي لاستخدامه في الأزرار
+# فصل الـ ID المخصص وتنظيف اسم القسم من أي رموز ثانوية
 def parse_section_emoji(html_text):
-    clean_text = re.sub(r'<[^>]+>', '', html_text).strip()
     match = re.search(r'emoji-id="(\d+)"', html_text)
     emoji_id = match.group(1) if match else None
+    clean_text = re.sub(r'<[^>]+>', '', html_text).replace('*', '').strip()
     return clean_text, emoji_id
 
 # ══════════════════════════════════════
@@ -301,7 +295,6 @@ def send_home(chat_id):
             "style": "primary"
         }
         
-        # لو كاتب إيموجي مميز في الاسم نحطه للزرار مباشرة
         if custom_id:
             btn_kwargs["icon_custom_emoji_id"] = custom_id
 
@@ -734,7 +727,7 @@ def adm_cb(call):
 
     elif d == "adm_add_section":
         states[uid] = {"step": "add_sec_name"}
-        bot.edit_message_text(f"{ce(E['fire'])} ابعت اسم القسم ومعه الايموجي المميز (مثال: فودافون 💎):", cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['fire'])} ابعت اسم القسم ومعاه الايموجي المميز بتاعه فقط:", cid, mid, parse_mode="HTML")
 
     elif d == "adm_broadcast":
         states[uid] = {"step": "broadcast"}
