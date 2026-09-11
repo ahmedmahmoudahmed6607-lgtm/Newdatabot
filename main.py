@@ -1,5 +1,4 @@
 import subprocess, sys
-
 def install(pkg):
     subprocess.check_call([sys.executable, "-m", "pip", "install", pkg, "--break-system-packages", "-q"])
 
@@ -21,7 +20,6 @@ ADMIN_ID  = 7093128950
 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
 
-# قاموس لتتبع حالات المستخدمين
 states = {}
 
 # ══════════════════════════════════════
@@ -102,7 +100,6 @@ def is_admin(uid):
     return cur.fetchone() is not None
 
 def send_admin_notification(text, photo=None, reply_markup=None):
-    """دالة آمنة لإرسال الإشعارات للأدمن عبر البوت الرئيسي أو الشات المباشر"""
     bot_id = bot.get_me().id
     target_ids = list({ADMIN_ID, bot_id})
     for target in target_ids:
@@ -115,7 +112,7 @@ def send_admin_notification(text, photo=None, reply_markup=None):
         except Exception:
             continue
 
-# دالة تحويل الرسالة إلى HTML لتضمين الإيموجيات المميزة
+# تحويل الكيانات (Entities) إلى HTML للحفاظ على الإيموجي المميز
 def get_html_text(msg):
     if not msg.text:
         return ""
@@ -142,7 +139,7 @@ def get_html_text(msg):
 
     return text
 
-# دالة استخراج الـ Custom Emoji ID والنص النظيف للأزرار
+# استخراج الـ Custom Emoji ID والنص الصافي لاستخدامه في الأزرار
 def parse_section_emoji(html_text):
     clean_text = re.sub(r'<[^>]+>', '', html_text).strip()
     match = re.search(r'emoji-id="(\d+)"', html_text)
@@ -150,17 +147,14 @@ def parse_section_emoji(html_text):
     return clean_text, emoji_id
 
 # ══════════════════════════════════════
-# 🌟 نظام التعبيرات والإيموجي المخصص
+# 🌟 نظام الإيموجي المخصص العام
 # ══════════════════════════════════════
 E_FALLBACK = {
     "5355180574313060180": "⭐", "5357272206206342962": "🔥", "5354797987216265138": "💎",
     "5357581641420143839": "👑", "5357169569372866445": "⚡", "5355057446190613905": "✅",
     "5355023563193619708": "🔒", "5355332431471748210": "➡️", "5355200176543799124": "💸",
     "5354973921961611463": "🔔", "5204242830687494041": "🛡️", "5377336227533969892": "👋",
-    "5472250091332993630": "🚀", "5235794253149394263": "👁️", "5461128651477111908": "🔑",
-    "5215420556089776398": "❤️", "5381975814415866082": "🎁", "5462902520215002477": "🌙",
-    "5472239203590888751": "☀️", "5400090058030075645": "☁️",
-    "5386377708570914041": "🟠", "5386395891314963351": "🔴", "5386566088210499824": "🟡", "5386411984540645162": "🟢"
+    "5472250091332993630": "🚀", "5235794253149394263": "👁️", "5461128651477111908": "🔑"
 }
 
 def ce(eid): 
@@ -170,7 +164,6 @@ def ce(eid):
 E = {
     "star": "5355180574313060180",
     "fire": "5357272206206342962",
-    "diamond": "5354797987216265138",
     "crown": "5357581641420143839",
     "flash": "5357169569372866445",
     "check": "5355057446190613905",
@@ -182,32 +175,8 @@ E = {
     "wave": "5377336227533969892",
     "rocket": "5472250091332993630",
     "eye": "5235794253149394263",
-    "key": "5461128651477111908",
-    "heart": "5215420556089776398",
-    "gift": "5381975814415866082",
-    "moon": "5462902520215002477",
-    "sun": "5472239203590888751",
-    "cloud": "5400090058030075645"
+    "key": "5461128651477111908"
 }
-
-# أيديهات الشبكات المخصصة
-E_ORANGE   = "5386377708570914041"
-E_VODAFONE = "5386395891314963351"
-E_INWI     = "5386566088210499824"
-E_ETISALAT = "5386411984540645162"
-
-def get_network_emoji(name):
-    """تحديد الإيموجي المناسب حسب اسم القسم تلقائياً"""
-    clean_name = re.sub(r'<[^>]+>', '', str(name)).lower()
-    if "اورنج" in clean_name or "orange" in clean_name:
-        return E_ORANGE
-    elif "فودافون" in clean_name or "vodafone" in clean_name or "فودا" in clean_name:
-        return E_VODAFONE
-    elif "انوى" in clean_name or "انوي" in clean_name or "inwi" in clean_name:
-        return E_INWI
-    elif "اتصالات" in clean_name or "etisalat" in clean_name or "إتصالات" in clean_name:
-        return E_ETISALAT
-    return E["star"]
 
 # ══════════════════════════════════════
 # 📣 الاشتراك الإجباري
@@ -239,7 +208,7 @@ def subscribe_markup(not_joined):
     return kb
 
 # ══════════════════════════════════════
-# 🎛️ لوحة الأدمن الرئيسي (كل الصلاحيات)
+# 🎛️ لوحات التحكم
 # ══════════════════════════════════════
 def admin_markup():
     kb = InlineKeyboardMarkup(row_width=2)
@@ -272,9 +241,6 @@ def admin_markup():
     )
     return kb
 
-# ══════════════════════════════════════
-# 🎛️ لوحة الأدمن الفرعي (بدون تغيير الكاش)
-# ══════════════════════════════════════
 def subadmin_markup():
     kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
@@ -310,11 +276,10 @@ def cmd_admin(msg):
     uid = msg.from_user.id
     if not is_admin(uid): return
     title = f"{ce(E['crown'])} <b>لوحة الادمن</b>" if is_owner(uid) else f"{ce(E['shield'])} <b>لوحة المشرف</b>"
-    bot.send_message(msg.chat.id, title,
-                     parse_mode="HTML", reply_markup=get_admin_markup(uid))
+    bot.send_message(msg.chat.id, title, parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
 # ══════════════════════════════════════
-# 🏠 الصفحة الرئيسية
+# 🏠 عرض الرئيسية والأزرار
 # ══════════════════════════════════════
 def send_home(chat_id):
     welcome = gs("welcome_message")
@@ -326,14 +291,29 @@ def send_home(chat_id):
     cur.execute("SELECT id, name, price, status FROM sections")
     rows = cur.fetchall()
     btns = []
+    
     for r in rows:
         clean_btn_name, custom_id = parse_section_emoji(r[1])
-        icon_id = custom_id if custom_id else get_network_emoji(clean_btn_name)
+        
+        btn_kwargs = {
+            "text": clean_btn_name,
+            "callback_data": f"sec_{r[0]}",
+            "style": "primary"
+        }
+        
+        # لو كاتب إيموجي مميز في الاسم نحطه للزرار مباشرة
+        if custom_id:
+            btn_kwargs["icon_custom_emoji_id"] = custom_id
 
         if r[3] == "open":
-            btns.append(InlineKeyboardButton(clean_btn_name, callback_data=f"sec_{r[0]}", style="primary", icon_custom_emoji_id=icon_id))
+            btns.append(InlineKeyboardButton(**btn_kwargs))
         else:
-            btns.append(InlineKeyboardButton(f"🔒 {clean_btn_name}", callback_data=f"sec_closed_{r[0]}", style="danger", icon_custom_emoji_id=E["lock"]))
+            btn_kwargs["text"] = f"🔒 {clean_btn_name}"
+            btn_kwargs["callback_data"] = f"sec_closed_{r[0]}"
+            btn_kwargs["style"] = "danger"
+            btn_kwargs["icon_custom_emoji_id"] = E["lock"]
+            btns.append(InlineKeyboardButton(**btn_kwargs))
+            
     if btns:
         kb.add(*btns)
 
@@ -352,7 +332,7 @@ def send_home(chat_id):
     bot.send_message(chat_id, welcome, reply_markup=kb, parse_mode="HTML")
 
 # ══════════════════════════════════════
-# /start
+# /start والاشتراك
 # ══════════════════════════════════════
 @bot.message_handler(commands=["start"])
 def cmd_start(msg):
@@ -367,8 +347,7 @@ def cmd_start(msg):
 
     if is_admin(uid):
         greeting = f"{ce(E['crown'])} <b>اهلا ادمن!</b>" if is_owner(uid) else f"{ce(E['shield'])} <b>اهلا مشرف!</b>"
-        bot.send_message(msg.chat.id, greeting,
-                         parse_mode="HTML", reply_markup=get_admin_markup(uid))
+        bot.send_message(msg.chat.id, greeting, parse_mode="HTML", reply_markup=get_admin_markup(uid))
         return
 
     if is_new:
@@ -392,9 +371,6 @@ def cmd_start(msg):
 
     send_home(msg.chat.id)
 
-# ══════════════════════════════════════
-# ✅ تحقق من الاشتراك
-# ══════════════════════════════════════
 @bot.callback_query_handler(func=lambda c: c.data == "check_sub")
 def do_check_sub(call):
     not_joined = check_subscribe(call.from_user.id)
@@ -410,9 +386,6 @@ def do_check_sub(call):
         except: pass
         send_home(call.message.chat.id)
 
-# ══════════════════════════════════════
-# 📊 إحصائيات العميل
-# ══════════════════════════════════════
 @bot.callback_query_handler(func=lambda c: c.data == "my_stats")
 def my_stats(call):
     uid = call.from_user.id
@@ -435,8 +408,7 @@ def my_stats(call):
             f"❌ مرفوضة: <b>{rejected}</b>")
 
     try:
-        bot.edit_message_text(text, call.message.chat.id, call.message.message_id,
-                              parse_mode="HTML", reply_markup=kb)
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, parse_mode="HTML", reply_markup=kb)
     except:
         bot.send_message(call.message.chat.id, text, parse_mode="HTML", reply_markup=kb)
 
@@ -446,9 +418,6 @@ def go_home(call):
     except: pass
     send_home(call.message.chat.id)
 
-# ══════════════════════════════════════
-# 📂 قسم مغلق
-# ══════════════════════════════════════
 @bot.callback_query_handler(func=lambda c: c.data.startswith("sec_closed_"))
 def sec_closed(call):
     sec_id = int(call.data.split("_")[2])
@@ -457,9 +426,6 @@ def sec_closed(call):
     clean_name, _ = parse_section_emoji(r[0]) if r else ('', None)
     bot.answer_callback_query(call.id, f"🔒 قسم {clean_name} مغلق حالياً!", show_alert=True)
 
-# ══════════════════════════════════════
-# 📂 قسم مفتوح
-# ══════════════════════════════════════
 @bot.callback_query_handler(func=lambda c: c.data.startswith("sec_") and not c.data.startswith("sec_closed_"))
 def sec_selected(call):
     not_joined = check_subscribe(call.from_user.id)
@@ -491,8 +457,7 @@ def sec_selected(call):
             f"{ce(E['arrow'])} بعد التحويل ابعت <b>سكرين الايصال</b> هنا 👇")
 
     try:
-        bot.edit_message_text(text, call.message.chat.id, call.message.message_id,
-                              parse_mode="HTML", reply_markup=kb)
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, parse_mode="HTML", reply_markup=kb)
     except:
         bot.send_message(call.message.chat.id, text, parse_mode="HTML", reply_markup=kb)
 
@@ -515,8 +480,7 @@ def handle_photo(msg):
     if is_admin(uid) and step == "set_photo":
         ss("welcome_photo", msg.photo[-1].file_id)
         states.pop(uid, None)
-        bot.send_message(uid, f"{ce(E['check'])} <b>تم تغيير صورة الترحيب!</b>",
-                         parse_mode="HTML", reply_markup=get_admin_markup(uid))
+        bot.send_message(uid, f"{ce(E['check'])} <b>تم تغيير صورة الترحيب!</b>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
         return
 
     if is_admin(uid) and step == "admin_reply":
@@ -529,11 +493,8 @@ def handle_photo(msg):
                 InlineKeyboardButton("✅ تم الاستلام", callback_data=f"cli_confirm_{req_id}", style="success", icon_custom_emoji_id=E["check"]),
                 InlineKeyboardButton("❌ في مشكلة",    callback_data=f"cli_issue_{req_id}", style="danger")
             )
-            bot.send_photo(r[0], msg.photo[-1].file_id,
-                           caption=f"{ce(E['bell'])} <b>رد من الادارة على طلبك:</b>",
-                           parse_mode="HTML", reply_markup=kb)
-            bot.send_message(uid, f"{ce(E['check'])} <b>تم ارسال الرد للعميل.</b>",
-                             parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            bot.send_photo(r[0], msg.photo[-1].file_id, caption=f"{ce(E['bell'])} <b>رد من الادارة على طلبك:</b>", parse_mode="HTML", reply_markup=kb)
+            bot.send_message(uid, f"{ce(E['check'])} <b>تم ارسال الرد للعميل.</b>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
         states.pop(uid, None)
         return
 
@@ -543,10 +504,7 @@ def handle_photo(msg):
         states[uid]         = state
         kb = InlineKeyboardMarkup()
         kb.add(InlineKeyboardButton("❌ الغاء", callback_data="cancel", style="danger"))
-        bot.send_message(uid,
-                         f"{ce(E['check'])} <b>استلمنا السكرين!</b>\n\n"
-                         f"{ce(E['arrow'])} دلوقتي ابعت <b>الرقم اللي حولت منه</b>:",
-                         parse_mode="HTML", reply_markup=kb)
+        bot.send_message(uid, f"{ce(E['check'])} <b>استلمنا السكرين!</b>\n\n{ce(E['arrow'])} دلوقتي ابعت <b>الرقم اللي حولت منه</b>:", parse_mode="HTML", reply_markup=kb)
         return
 
 # ══════════════════════════════════════
@@ -570,10 +528,8 @@ def handle_text(msg):
                 InlineKeyboardButton("✅ تم الاستلام", callback_data=f"cli_confirm_{req_id}", style="success", icon_custom_emoji_id=E["check"]),
                 InlineKeyboardButton("❌ في مشكلة",    callback_data=f"cli_issue_{req_id}", style="danger")
             )
-            bot.send_message(r[0], f"{ce(E['bell'])} <b>رد من الادارة:</b>\n\n{html_text_val}",
-                             parse_mode="HTML", reply_markup=kb)
-            bot.send_message(uid, f"{ce(E['check'])} <b>تم ارسال الرد للعميل.</b>",
-                             parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            bot.send_message(r[0], f"{ce(E['bell'])} <b>رد من الادارة:</b>\n\n{html_text_val}", parse_mode="HTML", reply_markup=kb)
+            bot.send_message(uid, f"{ce(E['check'])} <b>تم ارسال الرد للعميل.</b>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
         states.pop(uid, None)
         return
 
@@ -581,34 +537,28 @@ def handle_text(msg):
         if step == "set_cash":
             ss("cash_number", text)
             states.pop(uid, None)
-            bot.send_message(uid, f"{ce(E['money'])} <b>رقم الكاش:</b> <code>{text}</code>",
-                             parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            bot.send_message(uid, f"{ce(E['money'])} <b>رقم الكاش:</b> <code>{text}</code>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
         elif step == "set_trust":
             ss("trust_channel", text)
             states.pop(uid, None)
-            bot.send_message(uid, f"{ce(E['check'])} <b>قناة الثقة:</b> {text}",
-                             parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            bot.send_message(uid, f"{ce(E['check'])} <b>قناة الثقة:</b> {text}", parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
         elif step == "set_support":
             ss("support_username", text)
             states.pop(uid, None)
-            bot.send_message(uid, f"{ce(E['check'])} <b>حساب الدعم:</b> {text}",
-                             parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            bot.send_message(uid, f"{ce(E['check'])} <b>حساب الدعم:</b> {text}", parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
         elif step == "set_welcome_msg":
             ss("welcome_message", html_text_val)
             states.pop(uid, None)
-            bot.send_message(uid, f"{ce(E['check'])} <b>تم تغيير رسالة الترحيب.</b>",
-                             parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            bot.send_message(uid, f"{ce(E['check'])} <b>تم تغيير رسالة الترحيب.</b>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
         elif step == "add_sec_name":
             state["sec_name"] = html_text_val
             state["step"]     = "add_sec_price"
             states[uid]       = state
-            bot.send_message(uid,
-                             f"{ce(E['star'])} <b>اسم القسم:</b> {html_text_val}\n\nدلوقتي ابعت <b>السعر</b> (ارقام فقط):",
-                             parse_mode="HTML")
+            bot.send_message(uid, f"{ce(E['star'])} <b>اسم القسم:</b> {html_text_val}\n\nدلوقتي ابعت <b>السعر</b> (ارقام فقط):", parse_mode="HTML")
 
         elif step == "add_sec_price":
             if not text.isdigit():
@@ -618,9 +568,7 @@ def handle_text(msg):
             cur.execute("INSERT INTO sections(name,price) VALUES(?,?)", (name, price))
             conn.commit()
             states.pop(uid, None)
-            bot.send_message(uid,
-                             f"{ce(E['check'])} <b>تم اضافة القسم:</b>\n📂 {name} — {price} جنيه",
-                             parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            bot.send_message(uid, f"{ce(E['check'])} <b>تم اضافة القسم:</b>\n📂 {name} — {price} جنيه", parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
         elif step == "broadcast":
             cur.execute("SELECT id FROM users")
@@ -628,13 +576,11 @@ def handle_text(msg):
             sent  = 0
             for (u_id,) in users:
                 try:
-                    bot.send_message(u_id, f"{ce(E['bell'])} <b>اذاعة من الادارة:</b>\n\n{html_text_val}",
-                                     parse_mode="HTML")
+                    bot.send_message(u_id, f"{ce(E['bell'])} <b>اذاعة من الادارة:</b>\n\n{html_text_val}", parse_mode="HTML")
                     sent += 1
                 except: pass
             states.pop(uid, None)
-            bot.send_message(uid, f"{ce(E['check'])} <b>تم الارسال لـ {sent} مستخدم.</b>",
-                             parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            bot.send_message(uid, f"{ce(E['check'])} <b>تم الارسال لـ {sent} مستخدم.</b>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
         elif step == "add_force_channel":
             channel = text if text.startswith("@") else f"@{text}"
@@ -644,9 +590,7 @@ def handle_text(msg):
                 cur.execute("INSERT INTO force_channels(channel,title) VALUES(?,?)", (channel, title))
                 conn.commit()
                 states.pop(uid, None)
-                bot.send_message(uid,
-                                 f"{ce(E['check'])} <b>تم اضافة قناة الاشتراك الاجباري:</b>\n{title}",
-                                 parse_mode="HTML", reply_markup=get_admin_markup(uid))
+                bot.send_message(uid, f"{ce(E['check'])} <b>تم اضافة قناة الاشتراك الاجباري:</b>\n{title}", parse_mode="HTML", reply_markup=get_admin_markup(uid))
             except Exception as e:
                 bot.send_message(uid, f"❌ تاكد ان البوت ادمن في القناة!\nالخطأ: {e}")
 
@@ -664,20 +608,13 @@ def handle_text(msg):
                 fname = chat.first_name or ""
             except:
                 uname, fname = "", ""
-            cur.execute("INSERT OR IGNORE INTO admins(id,username,full_name) VALUES(?,?,?)",
-                        (new_admin_id, uname, fname))
+            cur.execute("INSERT OR IGNORE INTO admins(id,username,full_name) VALUES(?,?,?)", (new_admin_id, uname, fname))
             conn.commit()
             states.pop(uid, None)
             display = fname or uname or str(new_admin_id)
-            bot.send_message(uid,
-                             f"{ce(E['check'])} <b>تم اضافة الادمن:</b>\n"
-                             f"👤 {display}\n🆔 <code>{new_admin_id}</code>",
-                             parse_mode="HTML", reply_markup=get_admin_markup(uid))
+            bot.send_message(uid, f"{ce(E['check'])} <b>تم اضافة الادمن:</b>\n👤 {display}\n🆔 <code>{new_admin_id}</code>", parse_mode="HTML", reply_markup=get_admin_markup(uid))
             try:
-                bot.send_message(new_admin_id,
-                                 f"{ce(E['shield'])} <b>اهلا! تم تعيينك مشرف في البوت.</b>\n\n"
-                                 f"استخدم /admin للوصول للوحة التحكم.",
-                                 parse_mode="HTML")
+                bot.send_message(new_admin_id, f"{ce(E['shield'])} <b>اهلا! تم تعيينك مشرف في البوت.</b>\n\nاستخدم /admin للوصول للوحة التحكم.", parse_mode="HTML")
             except: pass
         return
 
@@ -688,10 +625,7 @@ def handle_text(msg):
         sec_name = state["sec_name"]
         kb = InlineKeyboardMarkup()
         kb.add(InlineKeyboardButton("❌ الغاء", callback_data="cancel", style="danger"))
-        bot.send_message(uid,
-                         f"{ce(E['check'])} <b>استلمنا الرقم!</b>\n\n"
-                         f"{ce(E['arrow'])} دلوقتي ابعت <b>الرقم اللي عايز تسحب عليه {sec_name}</b>:",
-                         parse_mode="HTML", reply_markup=kb)
+        bot.send_message(uid, f"{ce(E['check'])} <b>استلمنا الرقم!</b>\n\n{ce(E['arrow'])} دلوقتي ابعت <b>الرقم اللي عايز تسحب عليه {sec_name}</b>:", parse_mode="HTML", reply_markup=kb)
         return
 
     if step == "wait_target":
@@ -702,19 +636,13 @@ def handle_text(msg):
         screenshot    = state.get("screenshot", "")
         u             = msg.from_user
 
-        cur.execute(
-            "INSERT INTO requests(user_id,username,full_name,section_name,section_price,screenshot_id,phone_number)"
-            " VALUES(?,?,?,?,?,?,?)",
-            (uid, u.username or "", u.first_name or "", sec_name, sec_price, screenshot, f"{phone}|{target_number}")
-        )
+        cur.execute("INSERT INTO requests(user_id,username,full_name,section_name,section_price,screenshot_id,phone_number) VALUES(?,?,?,?,?,?,?)",
+                    (uid, u.username or "", u.first_name or "", sec_name, sec_price, screenshot, f"{phone}|{target_number}"))
         conn.commit()
         req_id = cur.lastrowid
         states.pop(uid, None)
 
-        bot.send_message(uid,
-                         f"{ce(E['check'])} <b>تم ارسال طلبك للمشرفين!</b>\n\n"
-                         f"{ce(E['rocket'])} سيتم الرد عليك قريباً",
-                         parse_mode="HTML")
+        bot.send_message(uid, f"{ce(E['check'])} <b>تم ارسال طلبك للمشرفين!</b>\n\n{ce(E['rocket'])} سيتم الرد عليك قريباً", parse_mode="HTML")
 
         admin_text = (
             f"{ce(E['bell'])} <b>طلب جديد #{req_id}</b>\n\n"
@@ -727,17 +655,13 @@ def handle_text(msg):
         )
 
         kb = InlineKeyboardMarkup()
-        kb.add(
-            InlineKeyboardButton("✅ قبول + ارسال البيانات", callback_data=f"adm_accept_{req_id}", style="success", icon_custom_emoji_id=E["check"]),
-        )
-        kb.add(
-            InlineKeyboardButton("❌ رفض", callback_data=f"adm_reject_{req_id}", style="danger"),
-        )
+        kb.add(InlineKeyboardButton("✅ قبول + ارسال البيانات", callback_data=f"adm_accept_{req_id}", style="success", icon_custom_emoji_id=E["check"]))
+        kb.add(InlineKeyboardButton("❌ رفض", callback_data=f"adm_reject_{req_id}", style="danger"))
 
         send_admin_notification(admin_text, photo=screenshot, reply_markup=kb)
 
 # ══════════════════════════════════════
-# 🎛️ كولباك الأدمن
+# 🎛️ كولباك الأدمن والاقسام
 # ══════════════════════════════════════
 @bot.callback_query_handler(func=lambda c: c.data.startswith("adm_"))
 def adm_cb(call):
@@ -754,8 +678,7 @@ def adm_cb(call):
             bot.answer_callback_query(call.id, "❌ الأدمن الرئيسي بس اللي يقدر يغير رقم الكاش!", show_alert=True)
             return
         states[uid] = {"step": "set_cash"}
-        bot.edit_message_text(f"{ce(E['money'])} ابعت رقم الكاش الجديد:",
-                              cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['money'])} ابعت رقم الكاش الجديد:", cid, mid, parse_mode="HTML")
 
     elif d == "adm_admins":
         if not is_owner(uid):
@@ -768,22 +691,13 @@ def adm_cb(call):
             kb.add(InlineKeyboardButton(f"🗑️ حذف: {name_display}", callback_data=f"adm_deladmin_{r[0]}", style="danger"))
         kb.add(InlineKeyboardButton("➕ اضافة ادمن", callback_data="adm_addadmin", style="success"))
         kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
-        bot.edit_message_text(
-            f"{ce(E['crown'])} <b>ادارة الادمنز</b>\n\n"
-            f"عدد الادمنز الفرعيين: <b>{len(rows)}</b>\n\n"
-            "⚠️ الادمن الفرعي يقدر يعمل كل حاجه ما عدا تغيير رقم الكاش وادارة الادمنز.",
-            cid, mid, parse_mode="HTML", reply_markup=kb
-        )
+        bot.edit_message_text(f"{ce(E['crown'])} <b>ادارة الادمنز</b>\n\nعدد الادمنز الفرعيين: <b>{len(rows)}</b>", cid, mid, parse_mode="HTML", reply_markup=kb)
 
     elif d == "adm_addadmin":
         if not is_owner(uid):
             bot.answer_callback_query(call.id, "❌ مش مسموح!", show_alert=True); return
         states[uid] = {"step": "add_admin"}
-        bot.edit_message_text(
-            f"{ce(E['arrow'])} ابعت الـ ID بتاع الادمن الجديد:\n\n"
-            "يقدر يجيبه من @userinfobot",
-            cid, mid, parse_mode="HTML"
-        )
+        bot.edit_message_text(f"{ce(E['arrow'])} ابعت الـ ID بتاع الادمن الجديد:", cid, mid, parse_mode="HTML")
 
     elif d.startswith("adm_deladmin_"):
         if not is_owner(uid):
@@ -800,40 +714,31 @@ def adm_cb(call):
             kb.add(InlineKeyboardButton(f"🗑️ حذف: {name_display}", callback_data=f"adm_deladmin_{r[0]}", style="danger"))
         kb.add(InlineKeyboardButton("➕ اضافة ادمن", callback_data="adm_addadmin", style="success"))
         kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
-        bot.edit_message_text(
-            f"{ce(E['crown'])} <b>ادارة الادمنز</b>\n\nعدد الادمنز الفرعيين: <b>{len(rows)}</b>",
-            cid, mid, parse_mode="HTML", reply_markup=kb
-        )
+        bot.edit_message_text(f"{ce(E['crown'])} <b>ادارة الادمنز</b>\n\nعدد الادمنز الفرعيين: <b>{len(rows)}</b>", cid, mid, parse_mode="HTML", reply_markup=kb)
 
     elif d == "adm_trust":
         states[uid] = {"step": "set_trust"}
-        bot.edit_message_text(f"{ce(E['star'])} ابعت يوزرنيم قناة الثقة (مثال: @channel):",
-                              cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['star'])} ابعت يوزرنيم قناة الثقة (مثال: @channel):", cid, mid, parse_mode="HTML")
 
     elif d == "adm_support":
         states[uid] = {"step": "set_support"}
-        bot.edit_message_text(f"{ce(E['shield'])} ابعت يوزرنيم الدعم (مثال: @support):",
-                              cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['shield'])} ابعت يوزرنيم الدعم (مثال: @support):", cid, mid, parse_mode="HTML")
 
     elif d == "adm_welcome_msg":
         states[uid] = {"step": "set_welcome_msg"}
-        bot.edit_message_text(f"{ce(E['wave'])} ابعت رسالة الترحيب الجديدة:",
-                              cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['wave'])} ابعت رسالة الترحيب الجديدة:", cid, mid, parse_mode="HTML")
 
     elif d == "adm_welcome_photo":
         states[uid] = {"step": "set_photo"}
-        bot.edit_message_text(f"{ce(E['eye'])} ابعت صورة الترحيب:",
-                              cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['eye'])} ابعت صورة الترحيب:", cid, mid, parse_mode="HTML")
 
     elif d == "adm_add_section":
         states[uid] = {"step": "add_sec_name"}
-        bot.edit_message_text(f"{ce(E['fire'])} ابعت اسم القسم الجديد:",
-                              cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['fire'])} ابعت اسم القسم ومعه الايموجي المميز (مثال: فودافون 💎):", cid, mid, parse_mode="HTML")
 
     elif d == "adm_broadcast":
         states[uid] = {"step": "broadcast"}
-        bot.edit_message_text(f"{ce(E['bell'])} ابعت رسالة الاذاعة:",
-                              cid, mid, parse_mode="HTML")
+        bot.edit_message_text(f"{ce(E['bell'])} ابعت رسالة الاذاعة:", cid, mid, parse_mode="HTML")
 
     elif d == "adm_users":
         cur.execute("SELECT COUNT(*) FROM users")
@@ -853,12 +758,7 @@ def adm_cb(call):
         kb = InlineKeyboardMarkup()
         kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
         bot.edit_message_text(
-            f"{ce(E['crown'])} <b>الاحصائيات</b>\n\n"
-            f"👥 المستخدمين: <b>{users}</b>\n"
-            f"📋 الطلبات الكلية: <b>{total}</b>\n"
-            f"⏳ معلقة: <b>{pending}</b>\n"
-            f"✅ مقبولة: <b>{accepted}</b>\n"
-            f"{ce(E['money'])} رقم الكاش: <code>{cash}</code>",
+            f"{ce(E['crown'])} <b>الاحصائيات</b>\n\n👥 المستخدمين: <b>{users}</b>\n📋 الطلبات الكلية: <b>{total}</b>\n⏳ معلقة: <b>{pending}</b>\n✅ مقبولة: <b>{accepted}</b>\n{ce(E['money'])} رقم الكاش: <code>{cash}</code>",
             cid, mid, parse_mode="HTML", reply_markup=kb
         )
 
@@ -870,19 +770,11 @@ def adm_cb(call):
             kb.add(InlineKeyboardButton(f"🗑️ حذف: {r[1]}", callback_data=f"adm_delf_{r[0]}", style="danger"))
         kb.add(InlineKeyboardButton("➕ اضافة قناة/جروب", callback_data="adm_addf"))
         kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
-        bot.edit_message_text(
-            f"{ce(E['lock'])} <b>الاشتراك الاجباري</b>\n\n"
-            f"القنوات الحالية: <b>{len(rows)}</b>\n\n"
-            "تاكد ان البوت ادمن في القناة قبل الاضافة!",
-            cid, mid, parse_mode="HTML", reply_markup=kb
-        )
+        bot.edit_message_text(f"{ce(E['lock'])} <b>الاشتراك الاجباري</b>\n\nالقنوات الحالية: <b>{len(rows)}</b>", cid, mid, parse_mode="HTML", reply_markup=kb)
 
     elif d == "adm_addf":
         states[uid] = {"step": "add_force_channel"}
-        bot.edit_message_text(
-            f"{ce(E['arrow'])} ابعت يوزرنيم القناة او الجروب:\n(مثال: @mychannel)",
-            cid, mid, parse_mode="HTML"
-        )
+        bot.edit_message_text(f"{ce(E['arrow'])} ابعت يوزرنيم القناة او الجروب:\n(مثال: @mychannel)", cid, mid, parse_mode="HTML")
 
     elif d.startswith("adm_delf_"):
         fid = int(d.split("_")[2])
@@ -896,10 +788,7 @@ def adm_cb(call):
             kb.add(InlineKeyboardButton(f"🗑️ حذف: {r[1]}", callback_data=f"adm_delf_{r[0]}", style="danger"))
         kb.add(InlineKeyboardButton("➕ اضافة قناة/جروب", callback_data="adm_addf"))
         kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
-        bot.edit_message_text(
-            f"{ce(E['lock'])} <b>الاشتراك الاجباري</b>\n\nالقنوات الحالية: <b>{len(rows)}</b>",
-            cid, mid, parse_mode="HTML", reply_markup=kb
-        )
+        bot.edit_message_text(f"{ce(E['lock'])} <b>الاشتراك الاجباري</b>\n\nالقنوات الحالية: <b>{len(rows)}</b>", cid, mid, parse_mode="HTML", reply_markup=kb)
 
     elif d == "adm_pending":
         cur.execute("SELECT id, full_name, section_name, section_price FROM requests WHERE status='pending' LIMIT 15")
@@ -909,13 +798,9 @@ def adm_cb(call):
         kb = InlineKeyboardMarkup(row_width=1)
         for r in rows:
             clean_sec_name, _ = parse_section_emoji(r[2])
-            kb.add(InlineKeyboardButton(
-                f"#{r[0]} ┃ {r[1]} ┃ {clean_sec_name} — {r[3]}ج",
-                callback_data=f"adm_view_{r[0]}"
-            ))
+            kb.add(InlineKeyboardButton(f"#{r[0]} ┃ {r[1]} ┃ {clean_sec_name} — {r[3]}ج", callback_data=f"adm_view_{r[0]}"))
         kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
-        bot.edit_message_text(f"{ce(E['bell'])} <b>الطلبات المعلقة:</b>",
-                              cid, mid, parse_mode="HTML", reply_markup=kb)
+        bot.edit_message_text(f"{ce(E['bell'])} <b>الطلبات المعلقة:</b>", cid, mid, parse_mode="HTML", reply_markup=kb)
 
     elif d.startswith("adm_view_"):
         req_id = int(d.split("_")[2])
@@ -953,17 +838,12 @@ def adm_cb(call):
         cur.execute("SELECT user_id FROM requests WHERE id=?", (req_id,))
         r = cur.fetchone()
         if r:
-            bot.send_message(r[0],
-                             f"{ce(E['check'])} <b>تم قبول طلبك!</b>\n\n"
-                             f"{ce(E['rocket'])} استنى.. البيانات هتوصلك دلوقتي",
-                             parse_mode="HTML")
+            bot.send_message(r[0], f"{ce(E['check'])} <b>تم قبول طلبك!</b>\n\n{ce(E['rocket'])} استنى.. البيانات هتوصلك دلوقتي", parse_mode="HTML")
         states[uid] = {"step": "admin_reply", "req_id": req_id}
         bot.answer_callback_query(call.id, "✅ تم القبول! ابعت البيانات دلوقتي.")
         try: bot.edit_message_reply_markup(cid, mid, reply_markup=None)
         except: pass
-        bot.send_message(uid,
-                         f"{ce(E['arrow'])} <b>ابعت البيانات للعميل</b> (نص او صورة) — طلب #{req_id}:",
-                         parse_mode="HTML")
+        bot.send_message(uid, f"{ce(E['arrow'])} <b>ابعت البيانات للعميل</b> (نص او صورة) — طلب #{req_id}:", parse_mode="HTML")
 
     elif d.startswith("adm_reject_"):
         req_id = int(d.split("_")[2])
@@ -974,11 +854,8 @@ def adm_cb(call):
         if r:
             support = gs("support_username")
             kb2 = InlineKeyboardMarkup()
-            kb2.add(InlineKeyboardButton("💬 تواصل مع الدعم",
-                                          url=f"https://t.me/{support.lstrip('@')}", icon_custom_emoji_id=E["shield"]))
-            bot.send_message(r[0],
-                             f"{ce(E['shield'])} <b>تم رفض طلبك.</b>\n\nللاستفسار تواصل مع الدعم.",
-                             parse_mode="HTML", reply_markup=kb2)
+            kb2.add(InlineKeyboardButton("💬 تواصل مع الدعم", url=f"https://t.me/{support.lstrip('@')}", icon_custom_emoji_id=E["shield"]))
+            bot.send_message(r[0], f"{ce(E['shield'])} <b>تم رفض طلبك.</b>\n\nللاستفسار تواصل مع الدعم.", parse_mode="HTML", reply_markup=kb2)
         bot.answer_callback_query(call.id, "❌ تم رفض الطلب!")
         try: bot.edit_message_reply_markup(cid, mid, reply_markup=None)
         except: pass
@@ -992,12 +869,18 @@ def adm_cb(call):
         for r in rows:
             icon = "🟢" if r[3] == "open" else "🔴"
             clean_sec_name, custom_id = parse_section_emoji(r[1])
-            icon_id = custom_id if custom_id else get_network_emoji(clean_sec_name)
-            kb.add(InlineKeyboardButton(f"{icon} {clean_sec_name} — {r[2]} جنيه",
-                                         callback_data=f"adm_secmng_{r[0]}", icon_custom_emoji_id=icon_id))
+            
+            btn_kwargs = {
+                "text": f"{icon} {clean_sec_name} — {r[2]} جنيه",
+                "callback_data": f"adm_secmng_{r[0]}"
+            }
+            if custom_id:
+                btn_kwargs["icon_custom_emoji_id"] = custom_id
+                
+            kb.add(InlineKeyboardButton(**btn_kwargs))
+            
         kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
-        bot.edit_message_text(f"{ce(E['key'])} <b>ادارة الاقسام:</b>",
-                              cid, mid, parse_mode="HTML", reply_markup=kb)
+        bot.edit_message_text(f"{ce(E['key'])} <b>ادارة الاقسام:</b>", cid, mid, parse_mode="HTML", reply_markup=kb)
 
     elif d.startswith("adm_secmng_"):
         sec_id  = int(d.split("_")[2])
@@ -1015,10 +898,7 @@ def adm_cb(call):
         )
         kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_sections", style="danger"))
         bot.edit_message_text(
-            f"{ce(E['lock'])} <b>ادارة القسم</b>\n\n"
-            f"📂 الاسم: {r[0]}\n"
-            f"{ce(E['money'])} السعر: {r[1]} جنيه\n"
-            f"📌 الحالة: {status_text}",
+            f"{ce(E['lock'])} <b>ادارة القسم</b>\n\n📂 الاسم: {r[0]}\n{ce(E['money'])} السعر: {r[1]} جنيه\n📌 الحالة: {status_text}",
             cid, mid, parse_mode="HTML", reply_markup=kb
         )
 
@@ -1044,10 +924,7 @@ def adm_cb(call):
         )
         kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_sections", style="danger"))
         bot.edit_message_text(
-            f"{ce(E['lock'])} <b>ادارة القسم</b>\n\n"
-            f"📂 الاسم: {r[0]}\n"
-            f"{ce(E['money'])} السعر: {r[1]} جنيه\n"
-            f"📌 الحالة: {status_text}",
+            f"{ce(E['lock'])} <b>ادارة القسم</b>\n\n📂 الاسم: {r[0]}\n{ce(E['money'])} السعر: {r[1]} جنيه\n📌 الحالة: {status_text}",
             cid, mid, parse_mode="HTML", reply_markup=kb
         )
 
@@ -1062,66 +939,58 @@ def adm_cb(call):
         for r in rows:
             icon = "🟢" if r[3] == "open" else "🔴"
             clean_sec_name, custom_id = parse_section_emoji(r[1])
-            icon_id = custom_id if custom_id else get_network_emoji(clean_sec_name)
-            kb.add(InlineKeyboardButton(f"{icon} {clean_sec_name} — {r[2]} جنيه",
-                                         callback_data=f"adm_secmng_{r[0]}", icon_custom_emoji_id=icon_id))
+            
+            btn_kwargs = {
+                "text": f"{icon} {clean_sec_name} — {r[2]} جنيه",
+                "callback_data": f"adm_secmng_{r[0]}"
+            }
+            if custom_id:
+                btn_kwargs["icon_custom_emoji_id"] = custom_id
+                
+            kb.add(InlineKeyboardButton(**btn_kwargs))
+            
         kb.add(InlineKeyboardButton("🔙 رجوع", callback_data="adm_back", style="danger"))
-        bot.edit_message_text(f"{ce(E['key'])} <b>ادارة الاقسام:</b>",
-                              cid, mid, parse_mode="HTML", reply_markup=kb)
+        bot.edit_message_text(f"{ce(E['key'])} <b>ادارة الاقسام:</b>", cid, mid, parse_mode="HTML", reply_markup=kb)
 
     elif d == "adm_back":
         title = f"{ce(E['crown'])} <b>لوحة الادمن</b>" if is_owner(uid) else f"{ce(E['shield'])} <b>لوحة المشرف</b>"
         bot.edit_message_text(title, cid, mid, parse_mode="HTML", reply_markup=get_admin_markup(uid))
 
 # ══════════════════════════════════════
-# ✅ كولباك العميل - تم الاستلام / مشكلة
+# ✅ تأكيد الاستلام من العميل
 # ══════════════════════════════════════
 @bot.callback_query_handler(func=lambda c: c.data.startswith("cli_confirm_"))
 def cli_confirm(call):
     req_id = int(call.data.split("_")[2])
-
     txt = f"{ce(E['check'])} <b>تم تاكيد الاستلام! شكراً لتعاملك معنا.</b>"
     try:
-        bot.edit_message_caption(caption=txt, chat_id=call.message.chat.id,
-                                  message_id=call.message.message_id, parse_mode="HTML")
+        bot.edit_message_caption(caption=txt, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML")
     except:
         try:
-            bot.edit_message_text(txt, call.message.chat.id,
-                                   call.message.message_id, parse_mode="HTML")
+            bot.edit_message_text(txt, call.message.chat.id, call.message.message_id, parse_mode="HTML")
         except: pass
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("📤 الرد بالبيانات", callback_data=f"adm_accept_{req_id}", style="success", icon_custom_emoji_id=E["check"]))
-    
-    send_admin_notification(
-        f"{ce(E['check'])} <b>العميل اكد استلام طلب #{req_id}</b>\n\n"
-        f"اضغط الزرار لو عايز ترد بالبيانات:",
-        reply_markup=kb
-    )
+    send_admin_notification(f"{ce(E['check'])} <b>العميل اكد استلام طلب #{req_id}</b>\n\nاضغط الزرار لو عايز ترد بالبيانات:", reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("cli_issue_"))
 def cli_issue(call):
     req_id  = int(call.data.split("_")[2])
     support = gs("support_username")
     kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("💬 تواصل مع الدعم",
-                                 url=f"https://t.me/{support.lstrip('@')}", icon_custom_emoji_id=E["shield"]))
+    kb.add(InlineKeyboardButton("💬 تواصل مع الدعم", url=f"https://t.me/{support.lstrip('@')}", icon_custom_emoji_id=E["shield"]))
     txt = f"{ce(E['shield'])} <b>ناسف على المشكلة! تواصل مع الدعم.</b>"
     try:
-        bot.edit_message_caption(caption=txt, chat_id=call.message.chat.id,
-                                  message_id=call.message.message_id,
-                                  parse_mode="HTML", reply_markup=kb)
+        bot.edit_message_caption(caption=txt, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode="HTML", reply_markup=kb)
     except:
         try:
-            bot.edit_message_text(txt, call.message.chat.id,
-                                   call.message.message_id,
-                                   parse_mode="HTML", reply_markup=kb)
+            bot.edit_message_text(txt, call.message.chat.id, call.message.message_id, parse_mode="HTML", reply_markup=kb)
         except: pass
-    
     send_admin_notification(f"⚠️ <b>العميل ابلغ عن مشكلة في طلب #{req_id}</b>")
 
 # ══════════════════════════════════════
-# 🚀 تشغيل
+# 🚀 التشغيل
 # ══════════════════════════════════════
 print("✅ البوت شغال!")
 bot.infinity_polling(timeout=30, long_polling_timeout=20)
